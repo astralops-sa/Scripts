@@ -1,0 +1,26 @@
+USE master
+GO
+DECLARE killer CURSOR LOCAL READ_ONLY FAST_FORWARD
+FOR
+SELECT spid
+FROM dbo.sysprocesses
+WHERE dbid = DB_ID('DBName')
+DECLARE @spid INT
+DECLARE @sql NVARCHAR(20)
+OPEN killer
+FETCH NEXT
+FROM killer
+INTO @spid
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SET @sql = N'KILL ' + CAST(@spid AS NVARCHAR(5))
+	EXEC sp_executesql @sql
+	FETCH NEXT
+	FROM killer
+	INTO @spid
+END
+CLOSE killer
+DEALLOCATE killer
+GO
+ALTER DATABASE CubeDataMart
+SET OFFLINE
