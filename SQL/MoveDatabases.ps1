@@ -94,6 +94,9 @@ if (-not (Get-Module -ListAvailable -Name SqlServer)) {
     }
 }
 
+# TODO: Run GetServiceAccount to verify SQLServiceAccount exists
+
+
 # Ensure destination paths exist
 foreach ($path in @($DataPath, $LogPath)) {
     if (-not (Test-Path $path)) {
