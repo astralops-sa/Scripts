@@ -29,8 +29,6 @@ Optional. SQL Service name (default: MSSQLSERVER for default instance)
 #>
 
 param (
-    [Parameter(Mandatory = $true)]
-    [string]$SQLServiceAccount,
 
     [Parameter(Mandatory = $true)]
     [string]$DataPath,
@@ -94,15 +92,24 @@ if (-not (Get-Module -ListAvailable -Name SqlServer)) {
     }
 }
 
-# TODO: Run GetServiceAccount to verify SQLServiceAccount exists
-
+$SQLServiceAccount = ""
+try {
+    $query = "SELECT ServiceName = servicename ,StartupType = startup_type_desc	,ServiceStatus = status_desc,StartupTime = last_startup_time,ServiceAccount = service_account,IsIFIEnabled = instant_file_initialization_enabled FROM sys.dm_server_services;"
+    $serviceInfo = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $query -TrustServerCertificate
+    $service = Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
+    $SQLServiceAccount = $service.ServiceAccount
+}
+catch {
+    Write-Err "Failed to retrieve SQL Service account: $($_.Exception.Message)" "ERROR";
+    throw
+}
 
 # Ensure destination paths exist
 foreach ($path in @($DataPath, $LogPath)) {
     if (-not (Test-Path $path)) {
         Write-Info "Creating folder $path..." "INFO"
         try { New-Item -Path $path -ItemType Directory } 
-        catch { Write-Err "Failed to create $path : $($_.Exception.Message)" "ERROR"; exit 1 }
+        catch { Write-Err "Failed to create $path : $($_.Exception.Message)" "ERROR"; throw }
     }
 
         Write-Info "Adding Permissions"
@@ -115,7 +122,7 @@ foreach ($path in @($DataPath, $LogPath)) {
         }
         catch {
             Write-Err "Failed to Add Permissions on $path : $($_.Exception.Message)" "Errir";
-            exit 1
+            throw
         }
 }
 
