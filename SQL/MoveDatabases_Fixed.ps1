@@ -100,10 +100,10 @@ try {
         $serviceInfo = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $query -TrustServerCertificate
         $service = $serviceInfo | Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
         $SQLServiceAccount = $service.ServiceAccount
+        Write-Info "Found Service account: $SQLServiceAccount"
     }
     catch {
-        Write-Err "Failed to retrieve SQL Service account: $($_.Exception.Message)"
-        Write-Log "Failed to retrieve SQL Service account: $($_.Exception.Message)" "ERROR"
+        Write-Err "Failed to retrieve SQL Service account: $($_.Exception.Message)" "Error"
         throw
     }
 
@@ -111,13 +111,12 @@ try {
     foreach ($path in @($DataPath, $LogPath)) {
         if (-not (Test-Path $path)) {
             Write-Info "Creating folder $path..."
-            Write-Log "Creating folder $path..." "INFO"
+            Write-INFO "Creating folder $path..." "INFO"
             try { 
                 New-Item -Path $path -ItemType Directory | Out-Null
             } 
             catch { 
                 Write-Err "Failed to create $path : $($_.Exception.Message)"
-                Write-Log "Failed to create $path : $($_.Exception.Message)" "ERROR"
                 throw 
             }
         }
@@ -132,7 +131,6 @@ try {
         }
         catch {
             Write-Err "Failed to Add Permissions on $path : $($_.Exception.Message)"
-            Write-Log "Failed to Add Permissions on $path : $($_.Exception.Message)" "ERROR"
             throw
         }
     }
