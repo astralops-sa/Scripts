@@ -100,21 +100,20 @@ foreach ($path in @($DataPath, $LogPath)) {
         Write-Info "Creating folder $path..." "INFO"
         try { New-Item -Path $path -ItemType Directory } 
         catch { Write-Err "Failed to create $path : $($_.Exception.Message)" "ERROR"; exit 1 }
+    }
 
         Write-Info "Adding Permissions"
         try {
-            $acl = Get-Acl $folder
+            $acl = Get-Acl $path
             $permission = "$SQLServiceAccount","FullControl","Allow"
             $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
             $acl.SetAccessRule($accessRule)
-            Set-Acl $folder $acl
+            Set-Acl $path $acl
         }
         catch {
             Write-Err "Failed to Add Permissions on $path : $($_.Exception.Message)" "Errir";
             exit 1
         }
-
-    }
 }
 
 # Get user databases if not specified
