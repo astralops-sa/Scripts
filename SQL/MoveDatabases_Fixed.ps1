@@ -299,18 +299,18 @@ EXEC xp_instance_regwrite
     $rollbackData | ConvertTo-Json -Depth 10 | Set-Content -Path $rollbackFilePath
 
     Write-Info "=== Script completed ==="
-    Write-Host "`n✅ Migration complete. Log saved to: $logFilePath" -ForegroundColor Green
-    Write-Host "📋 Rollback information saved to: $rollbackFilePath" -ForegroundColor Cyan
-    Write-Host "   Use this file with a rollback script if you need to revert changes." -ForegroundColor Cyan
+    Write-Info "`Migration complete. Log saved to: $logFilePath"
+    Write-Info "Rollback information saved to: $rollbackFilePath" 
+    Write-Info "Use this file with a rollback script if you need to revert changes." 
 }
 catch {
-    Write-Err ("ERROR: {0}" -f $_.Exception.Message)
+    Write-Err ("ERROR: ${ $_.Exception.Message }")
     
     # Save rollback data on error
     if ($rollbackData) {
         try {
             $rollbackData | ConvertTo-Json -Depth 10 | Set-Content -Path $rollbackFilePath
-            Write-Host "📋 Rollback information saved to: $rollbackFilePath" -ForegroundColor Yellow
+            Write-Info "Rollback information saved to: $rollbackFilePath"
         } catch {}
     }
     
