@@ -96,11 +96,18 @@ $SQLServiceAccount = ""
 try {
     $query = "SELECT ServiceName = servicename ,StartupType = startup_type_desc	,ServiceStatus = status_desc,StartupTime = last_startup_time,ServiceAccount = service_account,IsIFIEnabled = instant_file_initialization_enabled FROM sys.dm_server_services;"
     $serviceInfo = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $query -TrustServerCertificate
-    $service = Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
+    $service = $serviceInfo | Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
     $SQLServiceAccount = $service.ServiceAccount
 }
 catch {
     Write-Err "Failed to retrieve SQL Service account: $($_.Exception.Message)" "ERROR";
+    throw
+}
+
+$confirmation = Read-Host "Do you want to continue? (Y/N)"
+if ($confirmation -notin @("Y","y","Yes","yes")) {
+    Write-Log "User cancelled operation before moving databases." "WARN"
+    Write-Err "Operation cancelled. No changes made." -ForegroundColor Yellow
     throw
 }
 
@@ -125,6 +132,8 @@ foreach ($path in @($DataPath, $LogPath)) {
             throw
         }
 }
+
+
 
 # Get user databases if not specified
 if (-not $DatabaseNames) {
