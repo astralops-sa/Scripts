@@ -33,7 +33,7 @@ if($HasSSASRunning) {
     $SqlServices += "MSSQLServerOLAPService"
 }
 
-if($HasSSASRunning) {
+if($HasSSASCeipRunning) {
     $SqlServices += "SSASTELEMETRY"
 }
 
