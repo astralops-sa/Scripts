@@ -6,6 +6,8 @@
  - Restarts SQL services
  - Full logging
  - Safe rollback: SQL services always restarted even during failure
+
+ #TODO: Add switch flags as some services may use different services
 ==================================================================== #>
 
 param(
@@ -17,10 +19,23 @@ param(
     [ValidatePattern('^[A-Za-z]:?$')]
     [string]$NewDrive,
 
+    [switch]$HasSSASRunning,
+    [switch]$HasSSASCeipRunning,
+
     [string]$TempDrive = "Z:",
-    [string]$LogFolder = "C:\Temp",
-    [string[]] $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
+    [string]$LogFolder = "C:\Temp"
+    
 )
+
+$SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
+
+if($HasSSASRunning) {
+    $SqlServices += "MSSQLSERVEROLAPService"
+}
+
+if($HasSSASRunning) {
+    $SqlServices += "SSASTELEMETRY"
+}
 
 
 if (!(Test-Path $LogFolder)) { 
@@ -38,7 +53,24 @@ function Log {
 }
 
 Log "=== SQL Disk Migration Script Started ==="
-Log "OldDrive = $OldDrive, NewDrive = $NewDrive, TempDrive = $TempDrive"
+
+### --- USER CONFIRMATION ---
+Log "About to perform SQL Server disk migration:"
+Log "  Old Drive: $OldDrive"
+Log "  New Drive: $NewDrive"
+Log "  Temp Drive: $TempDrive"
+Log "  Services: $($SqlServices -join ', ')"
+Write-Host ""
+Write-Host "WARNING: This will stop SQL services and migrate data!" -ForegroundColor Yellow
+$confirmation = Read-Host "Do you want to proceed? (y/N)"
+
+if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
+    Log "Migration cancelled by user."
+    Write-Host "Migration cancelled." -ForegroundColor Red
+    exit 0
+}
+
+Log "User confirmed - proceeding with migration..."
 
 ### --- SQL SERVICE STOP/START ---
 function Stop-SqlServices {
