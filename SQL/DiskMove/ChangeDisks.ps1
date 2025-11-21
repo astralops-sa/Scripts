@@ -24,7 +24,6 @@ param(
 
     [string]$TempDrive = "Z:",
     [string]$LogFolder = "C:\Temp"
-    
 )
 
 $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
