@@ -30,7 +30,7 @@ param(
 $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
 
 if($HasSSASRunning) {
-    $SqlServices += "MSSQLSERVEROLAPService"
+    $SqlServices += "MSSQLServerOLAPService"
 }
 
 if($HasSSASRunning) {
