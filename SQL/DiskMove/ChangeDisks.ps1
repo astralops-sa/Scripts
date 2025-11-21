@@ -18,10 +18,10 @@ param(
     [string]$NewDrive,
 
     [string]$TempDrive = "Z:",
-    [string]$LogFolder = "C:\Temp"
+    [string]$LogFolder = "C:\Temp",
+    [string[]] $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
 )
 
-$SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
 
 if (!(Test-Path $LogFolder)) { 
     New-Item -ItemType Directory -Path $LogFolder | Out-Null 
