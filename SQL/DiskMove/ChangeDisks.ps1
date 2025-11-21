@@ -148,10 +148,10 @@ function Set-DriveLetter {
 
     try {
         Set-Partition -DriveLetter $CurrentLetter -NewDriveLetter $NewLetter -ErrorAction Stop
-        Log "SUCCESS: Changed drive letter $Current → $New"
+        Log "SUCCESS: Changed drive letter $Current -> $New"
     }
     catch {
-        Log "ERROR changing drive letter $Current → $New : $_"
+        Log "ERROR changing drive letter $Current -> $New : $_"
         throw
     }
 }
