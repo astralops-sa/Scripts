@@ -36,7 +36,7 @@ function Log {
     param([string]$Message)
     $Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $Line = "$Timestamp - $Message"
-    Write-Host $Line
+    #Write-Host $Line
     Add-Content -Path $LogFile -Value $Line
 }
 
