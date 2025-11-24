@@ -105,7 +105,7 @@ try {
         ./MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
     }
 
-    Log "1. Stopping SQL Services"
+    Log "Stopping SQL Services"
     Stop-SqlServices
 
     # Create array to store job information
