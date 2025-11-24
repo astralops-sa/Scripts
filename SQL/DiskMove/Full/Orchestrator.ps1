@@ -89,8 +89,6 @@ try {
         }
     }
 
-    Log "1. Stopping SQL Services"
-    Stop-SqlServices
 
     if (!(Test-Path $ConfigFile)) {
         Log "ERROR: Config file '$ConfigFile' not found."
@@ -99,20 +97,23 @@ try {
     
     $Config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
 
+    if($null -ne $Config.tempdbmove)
+    {
+         Log "Moving TempDB as per configuration..."
+        $ephemeralDrive = $entry.tempdbmove.ephemeralDrive
+        $safetyMarginMB = $entry.tempdbmove.safetyMarginMB
+        ./MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
+    }
+
+    Log "1. Stopping SQL Services"
+    Stop-SqlServices
+
     # Create array to store job information
     $Jobs = @()
     $JobResults = @()
 
-    foreach ($entry in $Config) {
+    foreach ($entry in $Config.disks) {
 
-        if($entry.taskName -eq "moveTempDb") {
-
-            $ephemeralDrive = $entry.ephemeralDrive
-            $safetyMarginMB = $entry.safetyMarginMB
-            ./MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
-        }
-
-        if($entry.taskName -eq "diskSwap") {
             $oldDrive = $entry.oldDrive
             $newDrive = $entry.newDrive
             $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
@@ -142,7 +143,7 @@ try {
                 NewDrive = $newDrive
                 RunNumber = $runNumber
             }
-        }
+        
     }
 
     Log "Waiting for all migration jobs to complete..."

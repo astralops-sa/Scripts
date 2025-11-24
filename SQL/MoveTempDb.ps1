@@ -87,15 +87,8 @@ $tempdbFiles = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $getFileQuery -
 $alterCommands = @()
 foreach ($file in $tempdbFiles) {
     $fileName = Split-Path $file.physical_name -Leaf
-    $newPath = Join-Path $EphemeralDrive "TempDB\$fileName"
+    $newPath = Join-Path $EphemeralDrive "$fileName"
     $alterCommands += "ALTER DATABASE tempdb MODIFY FILE (NAME = [$($file.name)], FILENAME = N'$newPath');"
-}
-
-# --- Step 5: Create directory on ephemeral disk ---
-$newDir = Join-Path $EphemeralDrive "TempDB"
-if (!(Test-Path $newDir)) {
-    Write-Info "Creating directory: $newDir"
-    New-Item -Path $newDir -ItemType Directory | Out-Null
 }
 
 # --- Step 6: Execute ALTER DATABASE commands ---
@@ -119,7 +112,7 @@ if ($service) {
     Write-Warn "SQL Server service not found. Please restart manually for changes to take effect."
 }
 
-Write-Ok "=== TempDB has been successfully moved to $EphemeralDrive\TempDB ==="
+Write-Ok "=== TempDB has been successfully moved to $EphemeralDrive ==="
 
 }
 catch {

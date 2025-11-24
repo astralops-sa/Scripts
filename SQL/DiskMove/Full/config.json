@@ -1,13 +1,13 @@
-[
-    {
-        "taskName": "moveTempDb",
+{
+    "tempdbmove" :{
         "ephemeralDrive": "D:",
         "safetyMarginMB": 512
     },
-    {
-        "taskName": "diskSwap",
-        "oldDrive": "F:",
-        "newDrive": "H:",
-        "tempLetter": "X:"
-    }
-]
+    "disks" :[
+        {
+            "oldDrive": "F:",
+            "newDrive": "H:",
+            "tempLetter": "X:"
+        }
+    ]
+}
