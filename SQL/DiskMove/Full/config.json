@@ -1,7 +1,13 @@
 [
     {
-        "oldDrive":"",
-        "newDrive":"",
-        "tempLetter":""
+        "taskName": "moveTempDb",
+        "ephemeralDrive": "D:",
+        "safetyMarginMB": 512
+    },
+    {
+        "taskName": "diskSwap",
+        "oldDrive": "F:",
+        "newDrive": "H:",
+        "tempLetter": "X:"
     }
 ]

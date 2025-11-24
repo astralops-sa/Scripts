@@ -75,6 +75,20 @@ function Start-SqlServices {
 }
 
 try {
+
+    Log "Checking for SqlServer PowerShell module..."
+
+    if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+        Log "SqlServer module not found. Installing from PowerShell Gallery..."
+        try {
+            Install-Module -Name SqlServer -AllowClobber -Force -Confrim -ErrorAction Stop
+            Log "SqlServer module installed successfully."
+        } catch {
+            Log "Failed to install SqlServer module. Please ensure you have internet access and the PowerShell Gallery is available."
+            throw
+        }
+    }
+
     Log "1. Stopping SQL Services"
     Stop-SqlServices
 
@@ -90,34 +104,44 @@ try {
     $JobResults = @()
 
     foreach ($entry in $Config) {
-        $oldDrive = $entry.oldDrive
-        $newDrive = $entry.newDrive
-        $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
-        $runNumber = $entry.oldDrive.TrimEnd(':')
 
-        Log "Starting parallel migration job for $oldDrive to $newDrive"
+        if($entry.taskName -eq "moveTempDb") {
 
-        # Start background job for each migration
-        $Job = Start-Job -ScriptBlock {
-            param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
+            $ephemeralDrive = $entry.ephemeralDrive
+            $safetyMarginMB = $entry.safetyMarginMB
+            ./MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
+        }
+
+        if($entry.taskName -eq "diskSwap") {
+            $oldDrive = $entry.oldDrive
+            $newDrive = $entry.newDrive
+            $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
+            $runNumber = $entry.oldDrive.TrimEnd(':')
+
+            Log "Starting parallel migration job for $oldDrive to $newDrive"
+
+            # Start background job for each migration
+            $Job = Start-Job -ScriptBlock {
+                param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
+                
+                # Execute the disk change script
+                & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
+                
+                # Return result info
+                return @{
+                    OldDrive = $OldDrive
+                    NewDrive = $NewDrive
+                    RunNumber = $OldDrive.TrimEnd(':')
+                    Success = $?
+                }
+            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$PSScriptRoot}\ChangeDisks.ps1"
             
-            # Execute the disk change script
-            & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
-            
-            # Return result info
-            return @{
-                OldDrive = $OldDrive
-                NewDrive = $NewDrive
-                RunNumber = $OldDrive.TrimEnd(':')
-                Success = $?
+            $Jobs += @{
+                Job = $Job
+                OldDrive = $oldDrive
+                NewDrive = $newDrive
+                RunNumber = $runNumber
             }
-        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$PSScriptRoot}\ChangeDisks.ps1"
-        
-        $Jobs += @{
-            Job = $Job
-            OldDrive = $oldDrive
-            NewDrive = $newDrive
-            RunNumber = $runNumber
         }
     }
 
