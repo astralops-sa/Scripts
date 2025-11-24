@@ -29,7 +29,7 @@ param(
 if (!(Test-Path $LogFolder)) { 
     New-Item -ItemType Directory -Path $LogFolder | Out-Null 
 }
-$LogFile = "$LogFolder\SQLDiskMigration${$RunNumber}_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+$LogFile = "$LogFolder\SQLDiskMigration_${$RunNumber}_$(Get-Date -Format yyyyMMdd_HHmmss).log"
 
 ### --- LOGGING FUNCTION ---
 function Log {
@@ -74,7 +74,7 @@ function Set-DriveLetter {
     $CurrentLetter = $Current.TrimEnd(":")
     $NewLetter = $New.TrimEnd(":")
 
-    Log "Attempting to change drive letter $Current → $New"
+    Log "Attempting to change drive letter $Current -> $New"
 
     $partition = Get-Partition -DriveLetter $CurrentLetter -ErrorAction SilentlyContinue
 

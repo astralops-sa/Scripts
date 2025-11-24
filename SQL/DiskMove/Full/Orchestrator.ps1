@@ -93,7 +93,7 @@ try {
         $oldDrive = $entry.oldDrive
         $newDrive = $entry.newDrive
         $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
-        $runNumber = [array]::IndexOf($Config, $entry) + 1
+        $runNumber = $entry.oldDrive.TrimEnd(':')
 
         Log "Starting parallel migration job for $oldDrive to $newDrive"
 
@@ -111,7 +111,7 @@ try {
                 RunNumber = $OldDrive.TrimEnd(':')
                 Success = $?
             }
-        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, ".\ChangeDisks.ps1"
+        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$PSScriptRoot}\ChangeDisks.ps1"
         
         $Jobs += @{
             Job = $Job
