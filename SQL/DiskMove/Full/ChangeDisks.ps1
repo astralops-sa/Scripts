@@ -45,7 +45,7 @@ function Log {
 function Copy-Data {
     Log "Copying data from $OldDrive to $NewDrive..."
 
-    $RoboLog = "$LogFolder\robocopy_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+    $RoboLog = "$LogFolder\robocopy_${ $OldDrive.TrimEnd(":") }_$(Get-Date -Format yyyyMMdd_HHmmss).log"
     Log "Robocopy log file: $RoboLog"
 
     $result = robocopy `
