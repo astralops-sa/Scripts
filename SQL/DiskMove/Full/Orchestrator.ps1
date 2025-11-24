@@ -96,6 +96,40 @@ try {
 
         Log "Migration completed for $oldDrive  please remove $newDrive"
 
+        # Get LUN number for the new drive to facilitate removal
+        try {
+            $driveLetter = $newDrive.TrimEnd(':')
+            Log "Getting LUN for drive $newDrive..."
+            
+            $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction SilentlyContinue
+            if ($partition) {
+                $disk = Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue
+                if ($disk -and $disk.Location) {
+                    # Extract LUN from location string (format: Integrated : Bus 0 : Device 63667 : Function : 30747 : Adapter 1 : Port 0 : Target : Lun1)
+                    if ($disk.Location -match 'Lun\s*(\d+)') {
+                        $lunNumber = $matches[1]
+                        Log "LUN Number for $newDrive removal: $lunNumber"
+                        
+                        # Save LUN info to file
+                        $removalFile = "$LogFolder\LUN_Removal_$($driveLetter)_$(Get-Date -Format yyyyMMdd_HHmmss).txt"
+                        "Drive: $newDrive" | Out-File -FilePath $removalFile -Encoding UTF8
+                        "LUN: $lunNumber" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
+                        "Location: $($disk.Location)" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
+                        Log "LUN information saved to: $removalFile"
+                    } else {
+                        Log "WARNING: Could not extract LUN number from location: $($disk.Location)"
+                    }
+                } else {
+                    Log "WARNING: Could not retrieve disk information for drive $newDrive"
+                }
+            } else {
+                Log "WARNING: Could not find partition for drive $newDrive"
+            }
+        }
+        catch {
+            Log "ERROR retrieving LUN information for $newDrive : $_"
+        }
+
     }
 
     Start-SqlServices
