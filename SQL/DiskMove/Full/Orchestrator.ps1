@@ -14,7 +14,7 @@ if (!(Test-Path $ConfigFile)) {
     exit 1
 }
 
-
+$ScriptLocation = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
 
 if($HasSSASRunning) {
@@ -81,7 +81,7 @@ try {
     if (-not (Get-Module -ListAvailable -Name SqlServer)) {
         Log "SqlServer module not found. Installing from PowerShell Gallery..."
         try {
-            Install-Module -Name SqlServer -AllowClobber -Force -Confrim -ErrorAction Stop
+            Install-Module -Name SqlServer -AllowClobber -Force -ErrorAction Stop
             Log "SqlServer module installed successfully."
         } catch {
             Log "Failed to install SqlServer module. Please ensure you have internet access and the PowerShell Gallery is available."
@@ -102,8 +102,10 @@ try {
          Log "Moving TempDB as per configuration..."
         $ephemeralDrive = $entry.tempdbmove.ephemeralDrive
         $safetyMarginMB = $entry.tempdbmove.safetyMarginMB
-        ./MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
+        & $ScriptLocation\MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
     }
+
+    throw
 
     Log "Stopping SQL Services"
     Stop-SqlServices
@@ -135,7 +137,7 @@ try {
                     RunNumber = $OldDrive.TrimEnd(':')
                     Success = $?
                 }
-            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$PSScriptRoot}\ChangeDisks.ps1"
+            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$ScriptLocation}\ChangeDisks.ps1"
             
             $Jobs += @{
                 Job = $Job
