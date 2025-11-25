@@ -14,14 +14,14 @@ param(
     [string]$LogFolder = "C:\Temp"
 )
 
-$LogFile = "$LogFolder\TempDB_${$RunNumber}_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+$LogFile = "$LogFolder\TempDBMove_$(Get-Date -Format yyyyMMdd_HHmmss).log"
 
 ### --- LOGGING FUNCTION ---
 function Log {
     param([string]$Message)
     $Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $Line = "$Timestamp - $Message"
-    #Write-Host $Line
+    Write-Host $Line
     Add-Content -Path $LogFile -Value $Line
 }
 
@@ -36,6 +36,33 @@ if (!(Test-Path $EphemeralDrive)) {
     Log "Ephemeral drive $EphemeralDrive not found. Exiting."
     throw
 }
+
+$SQLServiceAccount = ""
+    try {
+        $query = "SELECT ServiceName = servicename, StartupType = startup_type_desc, ServiceStatus = status_desc, StartupTime = last_startup_time, ServiceAccount = service_account, IsIFIEnabled = instant_file_initialization_enabled FROM sys.dm_server_services;"
+        $serviceInfo = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $query -TrustServerCertificate
+        $service = $serviceInfo | Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
+        $SQLServiceAccount = $service.ServiceAccount
+        Log "Found Service account: $SQLServiceAccount"
+    }
+    catch {
+        Log "Failed to retrieve SQL Service account: $($_.Exception.Message)" "Error"
+        throw
+    }
+
+Log "Adding Permissions"
+try {
+    $acl = Get-Acl $EphemeralDrive
+    $permission = "$SQLServiceAccount","FullControl","Allow"
+    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+    $acl.SetAccessRule($accessRule)
+    Set-Acl $EphemeralDrive $acl -Confirm
+}
+catch {
+    Write-Err "Failed to Add Permissions on $EphemeralDrive : $($_.Exception.Message)"
+    throw
+}
+
 
 $disk = Get-PSDrive | Where-Object { $_.Name -eq $EphemeralDrive.TrimEnd(':') }
 $freeSpaceMB = [math]::Round($disk.Free / 1MB, 2)

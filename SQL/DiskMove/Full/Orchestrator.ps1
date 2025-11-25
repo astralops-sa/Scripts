@@ -14,7 +14,7 @@ if (!(Test-Path $ConfigFile)) {
     exit 1
 }
 
-$ScriptLocation = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptLocation = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { (Get-Location).Path }
 $SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
 
 if($HasSSASRunning) {
@@ -97,12 +97,15 @@ try {
     
     $Config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
 
-    if($null -ne $Config.tempdbmove)
+    if($null -ne $Config.tempdb)
     {
-         Log "Moving TempDB as per configuration..."
-        $ephemeralDrive = $entry.tempdbmove.ephemeralDrive
-        $safetyMarginMB = $entry.tempdbmove.safetyMarginMB
+        Log "Moving TempDB as per configuration..."
+        $ephemeralDrive = $Config.tempdb.ephemeralDrive
+        $safetyMarginMB = $Config.tempdb.safetyMarginMB
+
         & $ScriptLocation\MoveTempDB.ps1 -EphemeralDrive $ephemeralDrive -SafetyMarginMB $safetyMarginMB -LogFolder $LogFolder
+
+        Log "TempDB move script completed. TempDb moved to $ephemeralDrive "
     }
 
     throw
@@ -119,7 +122,6 @@ try {
             $oldDrive = $entry.oldDrive
             $newDrive = $entry.newDrive
             $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
-            $runNumber = $entry.oldDrive.TrimEnd(':')
 
             Log "Starting parallel migration job for $oldDrive to $newDrive"
 
