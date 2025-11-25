@@ -108,8 +108,6 @@ try {
         Log "TempDB move script completed. TempDb moved to $ephemeralDrive "
     }
 
-    throw
-
     Log "Stopping SQL Services"
     Stop-SqlServices
 
@@ -118,36 +116,35 @@ try {
     $JobResults = @()
 
     foreach ($entry in $Config.disks) {
+        $oldDrive = $entry.oldDrive
+        $newDrive = $entry.newDrive
+        $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
+        $runNumber = $oldDrive.TrimEnd(':')
 
-            $oldDrive = $entry.oldDrive
-            $newDrive = $entry.newDrive
-            $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
+        Log "Starting parallel migration job for $oldDrive to $newDrive"
 
-            Log "Starting parallel migration job for $oldDrive to $newDrive"
-
-            # Start background job for each migration
-            $Job = Start-Job -ScriptBlock {
-                param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
-                
-                # Execute the disk change script
-                & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
-                
-                # Return result info
-                return @{
-                    OldDrive = $OldDrive
-                    NewDrive = $NewDrive
-                    RunNumber = $OldDrive.TrimEnd(':')
-                    Success = $?
-                }
-            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "${$ScriptLocation}\ChangeDisks.ps1"
+        # Start background job for each migration
+        $Job = Start-Job -ScriptBlock {
+            param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
             
-            $Jobs += @{
-                Job = $Job
-                OldDrive = $oldDrive
-                NewDrive = $newDrive
-                RunNumber = $runNumber
+            # Execute the disk change script
+            & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
+            
+            # Return result info
+            return @{
+                OldDrive = $OldDrive
+                NewDrive = $NewDrive
+                RunNumber = $RunNumber
+                Success = $?
             }
+        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "$ScriptLocation\ChangeDisks.ps1"
         
+        $Jobs += @{
+            Job = $Job
+            OldDrive = $oldDrive
+            NewDrive = $newDrive
+            RunNumber = $runNumber
+        }
     }
 
     Log "Waiting for all migration jobs to complete..."
@@ -207,6 +204,7 @@ try {
     Start-SqlServices
 
     Log "=== Migration Completed Successfully ==="
+    
 }
 catch {
     Log "FATAL ERROR: $_"
