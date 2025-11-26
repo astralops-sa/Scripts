@@ -40,6 +40,7 @@ function Log {
 }
 
 Log "=== SQL Disk Migration Script Started ==="
+Log "Script Location: $ScriptLocation "
 
 ### --- SQL SERVICE STOP/START ---
 function Stop-SqlServices {
@@ -95,14 +96,19 @@ try {
         $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
         $runNumber = $entry.oldDrive.TrimEnd(':')
 
+        if( -not $oldDrive -or -not $newDrive) {
+            Log "ERROR: Invalid configuration entry: $($entry | ConvertTo-Json -Compress)"
+            throw
+        }
+
         Log "Starting parallel migration job for $oldDrive to $newDrive"
 
         # Start background job for each migration
         $Job = Start-Job -ScriptBlock {
-            param($OldDrive, $NewDrive, $TempDrive, $LogFolder)
+            param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
             
             # Execute the disk change script
-            & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder
+            & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
             
             # Return result info
             return @{
@@ -111,7 +117,7 @@ try {
                 RunNumber = $OldDrive.TrimEnd(':')
                 Success = $?
             }
-        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, "$($ScriptLocation)\ChangeDisks.ps1"
+        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "$ScriptLocation\ChangeDisks.ps1"
         
         $Jobs += @{
             Job = $Job

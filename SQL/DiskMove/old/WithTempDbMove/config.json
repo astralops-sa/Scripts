@@ -1,0 +1,13 @@
+{
+    "tempdb" :{
+        "ephemeralDrive": "D:",
+        "safetyMarginMB": 512
+    },
+    "disks" :[
+        {
+            "oldDrive": "F:",
+            "newDrive": "H:",
+            "tempLetter": "X:"
+        }
+    ]
+}

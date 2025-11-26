@@ -19,18 +19,17 @@ param(
     [ValidatePattern('^[A-Za-z]:?$')]
     [string]$NewDrive,
 
-    [int]$RunNumber,
+    [string]$RunNumber,
 
     [string]$TempDrive = "Z:",
     [string]$LogFolder = "C:\Temp"
 )
 
-$processingDisk = $OldDrive.TrimEnd(':')
 
 if (!(Test-Path $LogFolder)) { 
     New-Item -ItemType Directory -Path $LogFolder | Out-Null 
 }
-$LogFile = "$LogFolder\SQLDiskMigration_$($processingDisk)_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+$LogFile = "$LogFolder\SQLDiskMigration-$RunNumber-$(Get-Date -Format yyyyMMdd_HHmmss).log"
 
 ### --- LOGGING FUNCTION ---
 function Log {
@@ -46,7 +45,7 @@ function Log {
 function Copy-Data {
     Log "Copying data from $OldDrive to $NewDrive..."
 
-    $RoboLog = "$LogFolder\robocopy_$($processingDisk)_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+    $RoboLog = "$LogFolder\robocopy-$RunNumber-$(Get-Date -Format yyyyMMdd_HHmmss).log"
     Log "Robocopy log file: $RoboLog"
 
     $result = robocopy `
