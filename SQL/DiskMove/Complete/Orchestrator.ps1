@@ -148,9 +148,16 @@ try {
     }
     Log "Waiting for all migration jobs to complete..."
 
-     # Wait for all jobs and collect results
+    # Wait for all jobs to complete in parallel
     foreach ($JobInfo in $Jobs) {
-        $Result = Receive-Job -Job $JobInfo.Job -Wait
+        Log "Waiting for job: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+        Wait-Job -Job $JobInfo.Job | Out-Null
+        Log "Job completed: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+    }
+
+    # Collect results from all completed jobs
+    foreach ($JobInfo in $Jobs) {
+        $Result = Receive-Job -Job $JobInfo.Job
         $JobResults += $Result
         Remove-Job -Job $JobInfo.Job
         
