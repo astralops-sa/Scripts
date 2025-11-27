@@ -1,8 +1,6 @@
 
 
 param(
-    [switch]$HasSSASRunning,
-    [switch]$HasSSASCeipRunning,
     [string]$TempDrive = "Z:",
     [string]$LogFolder = "C:\Temp\Migration",
     [string]$ConfigFile = "config.json"
