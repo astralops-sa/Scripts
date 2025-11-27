@@ -110,103 +110,109 @@ try {
     $Jobs = @()
     $JobResults = @()
 
-    foreach ($entry in $Config) {
-        $oldDrive = $entry.oldDrive
-        $newDrive = $entry.newDrive
-        $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
-        $runNumber = $entry.oldDrive.TrimEnd(':')
+    # Validate disks configuration
+    if (-not $Config.disks -or $Config.disks.Count -eq 0) {
+        Log "No disks configured in config.json. Skipping migration."
+    }
+    {
+         foreach ($entry in $Config.disks) {
+            $oldDrive = $entry.oldDrive
+            $newDrive = $entry.newDrive
+            $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
+            $runNumber = $entry.oldDrive.TrimEnd(':')
 
-        if( -not $oldDrive -or -not $newDrive) {
-            Log "ERROR: Invalid configuration entry: $($entry | ConvertTo-Json -Compress)"
-            throw
-        }
-
-        Log "Starting parallel migration job for $oldDrive to $newDrive"
-
-        # Start background job for each migration
-        $Job = Start-Job -ScriptBlock {
-            param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
-            
-            # Execute the disk change script
-            & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
-            
-            # Return result info
-            return @{
-                OldDrive = $OldDrive
-                NewDrive = $NewDrive
-                RunNumber = $OldDrive.TrimEnd(':')
-                Success = $?
+            if( -not $oldDrive -or -not $newDrive) {
+                Log "ERROR: Invalid configuration entry: $($entry | ConvertTo-Json -Compress)"
+                throw
             }
-        } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "$ScriptLocation\ChangeDisks.ps1"
-        
-        $Jobs += @{
-            Job = $Job
-            OldDrive = $oldDrive
-            NewDrive = $newDrive
-            RunNumber = $runNumber
-        }
-    }
-    Log "Waiting for all migration jobs to complete..."
 
-    # Wait for all jobs to complete in parallel
-    foreach ($JobInfo in $Jobs) {
-        Log "Waiting for job: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
-        Wait-Job -Job $JobInfo.Job | Out-Null
-        Log "Job completed: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
-    }
+            Log "Starting parallel migration job for $oldDrive to $newDrive"
 
-    # Collect results from all completed jobs
-    foreach ($JobInfo in $Jobs) {
-        $Result = Receive-Job -Job $JobInfo.Job
-        $JobResults += $Result
-        Remove-Job -Job $JobInfo.Job
-        
-        if ($Result.Success) {
-            Log "Migration completed for $($Result.OldDrive) -> $($Result.NewDrive)"
-        } else {
-            Log "ERROR: Migration failed for $($Result.OldDrive) -> $($Result.NewDrive)"
-        }
-    }
-
-    Log "All migration jobs completed successfully. Proceeding with post-migration tasks..."
-
-    # Process LUN information for all completed migrations
-    foreach ($Result in $JobResults | Where-Object { $_.Success }) {
-        try {
-            $driveLetter = $Result.NewDrive.TrimEnd(':')
-            Log "Getting LUN for drive $($Result.NewDrive)..."
+            # Start background job for each migration
+            $Job = Start-Job -ScriptBlock {
+                param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
+                
+                # Execute the disk change script
+                & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
+                
+                # Return result info
+                return @{
+                    OldDrive = $OldDrive
+                    NewDrive = $NewDrive
+                    RunNumber = $OldDrive.TrimEnd(':')
+                    Success = $?
+                }
+            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "$ScriptLocation\ChangeDisks.ps1"
             
-            $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction SilentlyContinue
-            if ($partition) {
-                $disk = Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue
-                if ($disk -and $disk.Location) {
-                    if ($disk.Location -match 'Lun\s*(\d+)') {
-                        $lunNumber = $matches[1]
-                        Log "LUN Number for $($Result.NewDrive) removal: $lunNumber"
-                        
-                        $removalFile = "$LogFolder\LUN_Removal_$($driveLetter)_$(Get-Date -Format yyyyMMdd_HHmmss).txt"
-                        "Drive: $($Result.NewDrive)" | Out-File -FilePath $removalFile -Encoding UTF8
-                        "LUN: $lunNumber" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
-                        "Location: $($disk.Location)" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
-                        Log "LUN information saved to: $removalFile"
+            $Jobs += @{
+                Job = $Job
+                OldDrive = $oldDrive
+                NewDrive = $newDrive
+                RunNumber = $runNumber
+            }
+        }
+        Log "Waiting for all migration jobs to complete..."
+
+        # Wait for all jobs to complete in parallel
+        foreach ($JobInfo in $Jobs) {
+            Log "Waiting for job: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+            Wait-Job -Job $JobInfo.Job | Out-Null
+            Log "Job completed: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+        }
+
+        # Collect results from all completed jobs
+        foreach ($JobInfo in $Jobs) {
+            $Result = Receive-Job -Job $JobInfo.Job
+            $JobResults += $Result
+            Remove-Job -Job $JobInfo.Job
+            
+            if ($Result.Success) {
+                Log "Migration completed for $($Result.OldDrive) -> $($Result.NewDrive)"
+            } else {
+                Log "ERROR: Migration failed for $($Result.OldDrive) -> $($Result.NewDrive)"
+            }
+        }
+
+        Log "All migration jobs completed successfully. Proceeding with post-migration tasks..."
+
+        # Process LUN information for all completed migrations
+        foreach ($Result in $JobResults | Where-Object { $_.Success }) {
+            try {
+                $driveLetter = $Result.NewDrive.TrimEnd(':')
+                Log "Getting LUN for drive $($Result.NewDrive)..."
+                
+                $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction SilentlyContinue
+                if ($partition) {
+                    $disk = Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue
+                    if ($disk -and $disk.Location) {
+                        if ($disk.Location -match 'Lun\s*(\d+)') {
+                            $lunNumber = $matches[1]
+                            Log "LUN Number for $($Result.NewDrive) removal: $lunNumber"
+                            
+                            $removalFile = "$LogFolder\LUN_Removal_$($driveLetter)_$(Get-Date -Format yyyyMMdd_HHmmss).txt"
+                            "Drive: $($Result.NewDrive)" | Out-File -FilePath $removalFile -Encoding UTF8
+                            "LUN: $lunNumber" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
+                            "Location: $($disk.Location)" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
+                            Log "LUN information saved to: $removalFile"
+                        } else {
+                            Log "WARNING: Could not extract LUN number from location: $($disk.Location)"
+                        }
                     } else {
-                        Log "WARNING: Could not extract LUN number from location: $($disk.Location)"
+                        Log "WARNING: Could not retrieve disk information for drive $($Result.NewDrive)"
                     }
                 } else {
-                    Log "WARNING: Could not retrieve disk information for drive $($Result.NewDrive)"
+                    Log "WARNING: Could not find partition for drive $($Result.NewDrive)"
                 }
-            } else {
-                Log "WARNING: Could not find partition for drive $($Result.NewDrive)"
+            }
+            catch {
+                Log "ERROR retrieving LUN information for $($Result.NewDrive): $_"
             }
         }
-        catch {
-            Log "ERROR retrieving LUN information for $($Result.NewDrive): $_"
-        }
-    }
 
-    Log "All migrations completed. Please remove the following drives:"
-    foreach ($Result in $JobResults | Where-Object { $_.Success }) {
-        Log "  - $($Result.NewDrive)"
+        Log "All migrations completed. Please remove the following drives:"
+        foreach ($Result in $JobResults | Where-Object { $_.Success }) {
+            Log "  - $($Result.NewDrive)"
+        }
     }
 
     Start-SqlServices
