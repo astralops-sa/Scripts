@@ -89,7 +89,7 @@ Log "Current TempDB size: $tempdbSizeMB MB"
 
 if ($freeSpaceMB -lt ($tempdbSizeMB + $SafetyMarginMB)) {
     Log "Not enough free space on $EphemeralDrive. Required: $($tempdbSizeMB + $SafetyMarginMB) MB, Available: $freeSpaceMB MB."
-    throw
+    exit 1
 }
 
 # --- Step 3: Get current TempDB file locations ---
