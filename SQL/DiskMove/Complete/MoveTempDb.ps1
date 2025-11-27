@@ -50,13 +50,21 @@ $SQLServiceAccount = ""
         throw
     }
 
+$newDir = Join-Path $EphemeralDrive "TempDb"
+if(!(Test-Path $newDir)) {
+    Log "Creating TempDb directory at $newDir"
+    New-Item -ItemType Directory -Path $newDir | Out-Null
+} else {
+    Log "TempDb directory already exists at $newDir"
+}
+
 Log "Adding Permissions"
 try {
-    $acl = Get-Acl $EphemeralDrive
+    $acl = Get-Acl "$EphemeralDrive\TempDb"
     $permission = "$SQLServiceAccount","FullControl","Allow"
     $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
     $acl.SetAccessRule($accessRule)
-    Set-Acl $EphemeralDrive $acl -Confirm
+    Set-Acl "$EphemeralDrive\TempDb" $acl
 }
 catch {
     Write-Err "Failed to Add Permissions on $EphemeralDrive : $($_.Exception.Message)"

@@ -87,7 +87,7 @@ $tempdbFiles = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $getFileQuery -
 $alterCommands = @()
 foreach ($file in $tempdbFiles) {
     $fileName = Split-Path $file.physical_name -Leaf
-    $newPath = Join-Path $EphemeralDrive "$fileName"
+    $newPath = Join-Path $EphemeralDrive "TempDB\$fileName"
     $alterCommands += "ALTER DATABASE tempdb MODIFY FILE (NAME = [$($file.name)], FILENAME = N'$newPath');"
 }
 

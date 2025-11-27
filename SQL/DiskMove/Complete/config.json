@@ -1,4 +1,10 @@
 {
+    "services": [
+        "MSSQLSERVER",
+        "SQLSERVERAGENT",
+        "MSSQLServerOLAPService",
+        "SSASTELEMETRY"
+    ],
     "tempdb" :{
         "ephemeralDrive": "D:",
         "safetyMarginMB": 512

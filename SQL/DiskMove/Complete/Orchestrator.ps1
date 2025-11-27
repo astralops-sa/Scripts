@@ -15,15 +15,8 @@ if (!(Test-Path $ConfigFile)) {
 }
 
 $ScriptLocation = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { (Get-Location).Path }
-$SqlServices = @("MSSQLSERVER","SQLSERVERAGENT")
-
-if($HasSSASRunning) {
-    $SqlServices += "MSSQLServerOLAPService"
-}
-
-if($HasSSASCeipRunning) {
-    $SqlServices += "SSASTELEMETRY"
-}
+$Config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
+$SqlServices = $Config.services
 
 if (!(Test-Path $LogFolder)) { 
     New-Item -ItemType Directory -Path $LogFolder | Out-Null 
@@ -90,7 +83,7 @@ try {
         }
     }
 
-    $Config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
+    
 
     if($null -ne $Config.tempdb)
     {
@@ -111,7 +104,7 @@ try {
         throw "Config file '$ConfigFile' not found."
     }
     
-    $Config = Get-Content -Path $ConfigFile -Raw | ConvertFrom-Json
+
 
     # Create array to store job information
     $Jobs = @()
@@ -153,10 +146,9 @@ try {
             RunNumber = $runNumber
         }
     }
-
     Log "Waiting for all migration jobs to complete..."
 
-    # Wait for all jobs and collect results
+     # Wait for all jobs and collect results
     foreach ($JobInfo in $Jobs) {
         $Result = Receive-Job -Job $JobInfo.Job -Wait
         $JobResults += $Result
@@ -168,6 +160,8 @@ try {
             Log "ERROR: Migration failed for $($Result.OldDrive) -> $($Result.NewDrive)"
         }
     }
+
+    Log "All migration jobs completed successfully. Proceeding with post-migration tasks..."
 
     # Process LUN information for all completed migrations
     foreach ($Result in $JobResults | Where-Object { $_.Success }) {
