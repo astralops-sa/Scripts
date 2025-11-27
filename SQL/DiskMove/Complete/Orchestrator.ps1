@@ -111,7 +111,7 @@ try {
     # Validate disks configuration
     if (-not $Config.disks -or $Config.disks.Count -eq 0) {
         Log "No disks configured in config.json. Skipping migration."
-    }
+    } else
     {
          foreach ($entry in $Config.disks) {
             $oldDrive = $entry.oldDrive
