@@ -67,10 +67,11 @@ try {
     Set-Acl "$EphemeralDrive\TempDb" $acl
 }
 catch {
-    Write-Err "Failed to Add Permissions on $EphemeralDrive : $($_.Exception.Message)"
+    Log "Failed to Add Permissions on $EphemeralDrive : $($_.Exception.Message)"
     throw
 }
 
+Write-Output "Checking free space on $EphemeralDrive..."
 
 $disk = Get-PSDrive | Where-Object { $_.Name -eq $EphemeralDrive.TrimEnd(':') }
 $freeSpaceMB = [math]::Round($disk.Free / 1MB, 2)
