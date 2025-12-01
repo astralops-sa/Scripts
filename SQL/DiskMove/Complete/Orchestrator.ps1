@@ -193,7 +193,7 @@ try {
                             "Location: $($disk.Location)" | Out-File -FilePath $removalFile -Encoding UTF8 -Append
                             Log "LUN information saved to: $removalFile"
                         } else {
-                            Log "WARNING: Could not extract LUN number from location: $($disk.Location)"
+                            Log "WARNING: Could not extract LUN number from location, This means that drive may be in a storage pool  and require manual removal: $($disk.NewDrive)" 
                         }
                     } else {
                         Log "WARNING: Could not retrieve disk information for drive $($Result.NewDrive)"
