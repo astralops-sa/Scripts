@@ -112,50 +112,62 @@ try {
     if (-not $Config.disks -or $Config.disks.Count -eq 0) {
         Log "No disks configured in config.json. Skipping migration."
     } else
-     {
-        foreach ($entry in $Config.disks) {
+    {
+         foreach ($entry in $Config.disks) {
             $oldDrive = $entry.oldDrive
             $newDrive = $entry.newDrive
             $tempDrive = if ($entry.tempLetter) { $entry.tempLetter } else { $TempDrive }
             $runNumber = $entry.oldDrive.TrimEnd(':')
 
             if( -not $oldDrive -or -not $newDrive) {
-            Log "ERROR: Invalid configuration entry: $($entry | ConvertTo-Json -Compress)"
-            throw
+                Log "ERROR: Invalid configuration entry: $($entry | ConvertTo-Json -Compress)"
+                throw
             }
 
-            Log "Starting migration for $oldDrive to $newDrive"
+            Log "Starting parallel migration job for $oldDrive to $newDrive"
 
-            # Execute the disk change script directly
-            try {
-            & "$ScriptLocation\ChangeDisks.ps1" -OldDrive $oldDrive -NewDrive $newDrive -TempDrive $tempDrive -LogFolder $LogFolder -RunNumber $runNumber
+            # Start background job for each migration
+            $Job = Start-Job -ScriptBlock {
+                param($OldDrive, $NewDrive, $TempDrive, $LogFolder, $RunNumber, $ScriptPath)
+                
+                # Execute the disk change script
+                & $ScriptPath -OldDrive $OldDrive -NewDrive $NewDrive -TempDrive $TempDrive -LogFolder $LogFolder -RunNumber $RunNumber
+                
+                # Return result info
+                return @{
+                    OldDrive = $OldDrive
+                    NewDrive = $NewDrive
+                    RunNumber = $OldDrive.TrimEnd(':')
+                    Success = $?
+                }
+            } -ArgumentList $oldDrive, $newDrive, $tempDrive, $LogFolder, $runNumber, "$ScriptLocation\ChangeDisks.ps1"
             
-            if ($LASTEXITCODE -eq 0) {
-                Log "Migration completed successfully for $oldDrive -> $newDrive"
-                $JobResults += @{
+            $Jobs += @{
+                Job = $Job
                 OldDrive = $oldDrive
                 NewDrive = $newDrive
                 RunNumber = $runNumber
-                Success = $true
-                }
+            }
+        }
+        Log "Waiting for all migration jobs to complete..."
+
+        # Wait for all jobs to complete in parallel
+        foreach ($JobInfo in $Jobs) {
+            Log "Waiting for job: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+            Wait-Job -Job $JobInfo.Job | Out-Null
+            Log "Job completed: $($JobInfo.OldDrive) -> $($JobInfo.NewDrive) (Job ID: $($JobInfo.Job.Id))"
+        }
+
+        # Collect results from all completed jobs
+        foreach ($JobInfo in $Jobs) {
+            $Result = Receive-Job -Job $JobInfo.Job
+            $JobResults += $Result
+            Remove-Job -Job $JobInfo.Job
+            
+            if ($Result.Success) {
+                Log "Migration completed for $($Result.OldDrive) -> $($Result.NewDrive)"
             } else {
-                Log "ERROR: Migration failed for $oldDrive -> $newDrive (Exit code: $LASTEXITCODE)"
-                $JobResults += @{
-                OldDrive = $oldDrive
-                NewDrive = $newDrive
-                RunNumber = $runNumber
-                Success = $false
-                }
-            }
-            }
-            catch {
-            Log "ERROR: Exception during migration for $oldDrive -> $newDrive : $_"
-            $JobResults += @{
-                OldDrive = $oldDrive
-                NewDrive = $newDrive
-                RunNumber = $runNumber
-                Success = $false
-            }
+                Log "ERROR: Migration failed for $($Result.OldDrive) -> $($Result.NewDrive)"
             }
         }
 

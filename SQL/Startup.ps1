@@ -14,7 +14,7 @@ if (!(Test-Path $folder)) {
         Set-Acl $folder $acl
     }
     catch {
-        Write-Output "Failed to Add Permissions on $EphemeralDrive : $($_.Exception.Message)"
+        Write-Output "Failed to Add Permissions on  : $($_.Exception.Message)"
     }
 }
  
