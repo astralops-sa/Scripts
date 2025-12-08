@@ -25,11 +25,35 @@ function Log {
     Add-Content -Path $LogFile -Value $Line
 }
 
+### --- SQLCMD HELPER FUNCTION ---
+function Invoke-SqlCmdUtil {
+    param(
+        [string]$ServerInstance,
+        [string]$Query
+    )
+    
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $Query | Out-File -FilePath $tempFile -Encoding ASCII
+        
+        $result = sqlcmd -S $ServerInstance -E -i $tempFile -h -1 -s "|" -W -C
+        
+        if ($LASTEXITCODE -ne 0) {
+            throw "sqlcmd execution failed with exit code $LASTEXITCODE"
+        }
+        
+        return $result
+    }
+    finally {
+        if (Test-Path $tempFile) {
+            Remove-Item $tempFile -Force
+        }
+    }
+}
+
 try {
 
     Log "=== Checking Disk and TempDB Status on $SqlInstance ==="
-
-    Import-Module SqlServer -ErrorAction Stop
 
 # --- Step 1: Verify the ephemeral disk exists ---
 if (!(Test-Path $EphemeralDrive)) {
@@ -39,14 +63,13 @@ if (!(Test-Path $EphemeralDrive)) {
 
 $SQLServiceAccount = ""
     try {
-        $query = "SELECT ServiceName = servicename, StartupType = startup_type_desc, ServiceStatus = status_desc, StartupTime = last_startup_time, ServiceAccount = service_account, IsIFIEnabled = instant_file_initialization_enabled FROM sys.dm_server_services;"
-        $serviceInfo = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $query -TrustServerCertificate
-        $service = $serviceInfo | Where-Object { $_.ServiceName -eq "SQL Server (MSSQLSERVER)" }
-        $SQLServiceAccount = $service.ServiceAccount
+        $query = "SELECT service_account FROM sys.dm_server_services WHERE servicename = 'SQL Server (MSSQLSERVER)';"
+        $result =  Invoke-SqlCmdUtil -ServerInstance $SqlInstance -Query $query
+        $SQLServiceAccount = ($result | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
         Log "Found Service account: $SQLServiceAccount"
     }
     catch {
-        Log "Failed to retrieve SQL Service account: $($_.Exception.Message)" "Error"
+        Log "Failed to retrieve SQL Service account: $($_.Exception.Message)"
         throw
     }
 
@@ -84,7 +107,8 @@ SELECT SUM(size) * 8 / 1024 AS TempdbSizeMB
 FROM tempdb.sys.database_files;
 "@
 
-$tempdbSizeMB = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $checkTempdbQuery -TrustServerCertificate | Select-Object -ExpandProperty TempdbSizeMB
+$result = Invoke-SqlCmdUtil -ServerInstance $SqlInstance -Query $checkTempdbQuery
+$tempdbSizeMB = ($result | Where-Object { $_.Trim() -ne "" -and $_.Trim() -notlike "*-*" } | Select-Object -First 1).Trim()
 
 Log "Current TempDB size: $tempdbSizeMB MB"
 
@@ -95,24 +119,30 @@ if ($freeSpaceMB -lt ($tempdbSizeMB + $SafetyMarginMB)) {
 
 # --- Step 3: Get current TempDB file locations ---
 $getFileQuery = @"
-SELECT name, physical_name 
+SELECT name + '|' + physical_name AS FileInfo
 FROM sys.master_files 
 WHERE database_id = DB_ID('tempdb');
 "@
-$tempdbFiles = Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $getFileQuery -TrustServerCertificate
+$result = Invoke-SqlCmdUtil -ServerInstance $SqlInstance -Query $getFileQuery
+$tempdbFiles = $result | Where-Object { $_.Trim() -ne "" -and $_ -like "*|*" }
 
 # --- Step 4: Build ALTER DATABASE commands ---
 $alterCommands = @()
-foreach ($file in $tempdbFiles) {
-    $fileName = Split-Path $file.physical_name -Leaf
-    $newPath = Join-Path $EphemeralDrive "TempDb\$fileName"
-    $alterCommands += "ALTER DATABASE tempdb MODIFY FILE (NAME = [$($file.name)], FILENAME = N'$newPath');"
+foreach ($fileLine in $tempdbFiles) {
+    $parts = $fileLine.Trim() -split '\|'
+    if ($parts.Count -eq 2) {
+        $name = $parts[0].Trim()
+        $physicalName = $parts[1].Trim()
+        $fileName = Split-Path $physicalName -Leaf
+        $newPath = Join-Path $EphemeralDrive "TempDb\$fileName"
+        $alterCommands += "ALTER DATABASE tempdb MODIFY FILE (NAME = [$name], FILENAME = N'$newPath');"
+    }
 }
 
 # --- Step 6: Execute ALTER DATABASE commands ---
 Log "Updating TempDB file locations..."
 $alterScript = $alterCommands -join "`n"
-Invoke-Sqlcmd -ServerInstance $SqlInstance -Query $alterScript -TrustServerCertificate
+Invoke-SqlCmdUtil -ServerInstance $SqlInstance -Query $alterScript | Out-Null
 Log "TempDB file paths updated successfully."
 
 Log "=== TempDB has been successfully moved to $EphemeralDrive\TempDB ==="
