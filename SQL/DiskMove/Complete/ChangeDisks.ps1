@@ -51,7 +51,7 @@ function Copy-Data {
     $result = robocopy `
         "$OldDrive\" `
         "$NewDrive\" `
-        /MIR /COPYALL /SEC /R:1 /W:1 /LOG:"$RoboLog"
+        /MIR /COPYALL /SEC /R:1 /W:1 /XD "System Volume Information" /LOG:"$RoboLog"
 
     Log "Robocopy exit code: $result"
 

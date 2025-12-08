@@ -1,4 +1,4 @@
-$folder = "D:\TempDB"
+$folder = "D:\TempDb"
 
 $SQLservice = Get-CimInstance Win32_Service -Filter "Name='MSSQLSERVER'" | Select-Object Name, StartName
 $SQLServiceAccount = $SQLservice.StartName
@@ -18,3 +18,5 @@ if (!(Test-Path $folder)) {
     }
 }
  
+Start-Service -Name MSSQLSERVER
+Start-Service -Name SQLSERVERAGENT
