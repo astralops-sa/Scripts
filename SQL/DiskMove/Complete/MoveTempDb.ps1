@@ -112,7 +112,7 @@ $tempdbSizeMB = ($result | Where-Object { $_.Trim() -ne "" -and $_.Trim() -notli
 
 Log "Current TempDB size: $tempdbSizeMB MB"
 
-if ($freeSpaceMB -lt ($tempdbSizeMB + $SafetyMarginMB)) {
+if (($tempdbSizeMB + $SafetyMarginMB) -lt $freeSpaceMB) {
     Log "Not enough free space on $EphemeralDrive. Required: $($tempdbSizeMB + $SafetyMarginMB) MB, Available: $freeSpaceMB MB."
     exit 1
 }
