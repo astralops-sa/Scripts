@@ -70,22 +70,6 @@ try {
 
     if($null -ne $Config.tempdb)
     {
-        Log "Checking for SqlServer PowerShell module..."
-
-        if (-not (Get-Module -ListAvailable -Name SqlServer)) {
-            Log "SqlServer module not found. Installing from PowerShell Gallery..."
-            try {
-                Install-Module -Name SqlServer -AllowClobber -Force -ErrorAction Stop
-                Log "SqlServer module installed successfully."
-            } catch {
-                Log "Failed to install SqlServer module. Please ensure you have internet access and the PowerShell Gallery is available."
-                throw
-            }
-            
-        } else {
-            Log "SqlServer module is already installed - Updating."
-            Update-Module -Name SqlServer -Force
-        }
 
         Log "Moving TempDB as per configuration..."
         $ephemeralDrive = $Config.tempdb.ephemeralDrive
